@@ -4,20 +4,43 @@
 \alias{run_rosdet}
 \title{Run the ROS-DET analysis to find switching gene pairs.}
 \usage{
-run_rosdet(expr_matrix, condition, significance_level = 0.05)
+run_rosdet(expr_matrix, condition, significance_level = 0.05, workers = 1)
 }
 \arguments{
 \item{expr_matrix}{A numeric matrix where rows are genes and columns are samples.}
 
-\item{condition}{A factor or character vector with two levels, matching the columns of expr_matrix.}
+\item{condition}{A factor or character vector with two levels, matching the columns of `expr_matrix`.}
 
 \item{significance_level}{The alpha level for the ECOR P-value cutoff.}
+
+\item{workers}{An integer specifying the number of parallel workers to use.
+Defaults to 1 (no parallelization). Set to a higher number to speed up computation.}
 }
 \value{
-A data frame with the ranked and filtered gene pairs.
+An object of class `rosdet_result` containing the ranked and filtered gene pairs.
+  This object can be used with `summary()` and `plot()`.
 }
 \description{
-Implements the methodology from the ROS-DET paper  to identify gene pairs
+Implements the methodology from the ROS-DET paper to identify gene pairs
 that switch from positive to negative correlation between two conditions.
-The method is robust to outliers, range bias, and small sample sizes.
+This improved version includes parallel processing capabilities.
+}
+\examples{
+\dontrun{
+# Load the package and create dummy data
+library(dcanr)
+set.seed(42)
+expr_matrix <- matrix(rnorm(100 * 40), nrow=100)
+rownames(expr_matrix) <- paste0("Gene", 1:100)
+condition <- factor(c(rep("Normal", 20), rep("Tumor", 20)))
+
+# Run analysis using 2 parallel workers
+rosdet_results <- run_rosdet(expr_matrix, condition, workers = 2)
+
+# Get a high-level summary
+summary(rosdet_results)
+
+# Automatically plot the top result
+plot(rosdet_results)
+}
 }

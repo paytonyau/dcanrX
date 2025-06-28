@@ -4,21 +4,32 @@
 \alias{run_bmht}
 \title{Run the BMHT analysis to find differentially coexpressed genes.}
 \usage{
-run_bmht(expr_matrix, condition, half_threshold = 0.4, n_permutations = 1000)
+run_bmht(
+  expr_matrix,
+  condition,
+  half_threshold = 0.4,
+  n_permutations = 1000,
+  workers = 1
+)
 }
 \arguments{
 \item{expr_matrix}{A numeric matrix where rows are genes and columns are samples.}
 
-\item{condition}{A factor or character vector with two levels, matching the columns of expr_matrix.}
+\item{condition}{A factor or character vector with two levels, matching the columns of `expr_matrix`.}
 
 \item{half_threshold}{The correlation threshold for the 'half-thresholding' strategy.}
 
 \item{n_permutations}{The number of permutations to run for statistical significance testing.}
+
+\item{workers}{An integer specifying the number of parallel workers to use.
+Defaults to 1 (no parallelization).}
 }
 \value{
-A data frame with genes ranked by their differential coexpression ('dc') value.
+An object of class `bmht_result` containing the ranked list of genes.
+  This object can be used with `summary()` and `plot()`.
 }
 \description{
 Implements the BMHT (Biweight Midcorrelation and Half-Thresholding) method.
 It ranks individual genes based on their overall change in coexpression connectivity.
+This improved version uses the robust, built-in 'parallel' package for processing.
 }

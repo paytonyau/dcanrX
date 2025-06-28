@@ -4,21 +4,30 @@
 \alias{run_bmkc}
 \title{Run the BMKC analysis to find differentially coexpressed gene modules.}
 \usage{
-run_bmkc(expr_matrix, condition, T1 = 0.7, T2 = 0.3, min_clique_size = 4)
+run_bmkc(
+  expr_matrix,
+  condition,
+  T1 = 0.7,
+  T2 = 0.3,
+  min_clique_size = 4,
+  workers = 1
+)
 }
 \arguments{
 \item{expr_matrix}{A numeric matrix where rows are genes and columns are samples.}
 
-\item{condition}{A factor or character vector with two levels, matching the columns of expr_matrix.}
+\item{condition}{A factor or character vector with two levels, matching the columns of `expr_matrix`.}
 
 \item{T1}{The absolute correlation threshold for the first condition.}
 
 \item{T2}{The absolute correlation threshold for the second condition.}
 
 \item{min_clique_size}{The minimum number of genes for a clique to be reported.}
+
+\item{workers}{An integer specifying the number of parallel workers to use for correlation calculation. Defaults to 1.}
 }
 \value{
-A list of character vectors, where each vector is a gene module (clique).
+A list containing the identified gene modules and parameters.
 }
 \description{
 Implements the BMKC (Biweight Midcorrelation and k-Clique) method.

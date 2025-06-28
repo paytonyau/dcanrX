@@ -1,136 +1,176 @@
 # dcanr: Differential Co-expression Analysis in R
+### Overview
 
-`dcanr` is an R package that provides a unified implementation of three distinct methods for differential co-expression analysis (DCEA). These methods were originally developed for microarray data and are designed to uncover how gene-gene relationships are rewired between two experimental conditions (e.g., normal vs. tumor).
+`dcanr` is an R package that provides a unified, robust implementation of three distinct methods for differential co-expression analysis (DCEA). These algorithms were originally developed for microarray data and are designed to uncover how gene-gene relationships are rewired between two experimental conditions (e.g., normal vs. disease).
 
-This package makes these powerful algorithms accessible for use on modern RNA-sequencing data by providing a robust, self-contained set of tools. The three implemented methods offer complementary views of differential co-expression:
+A key feature of `dcanr` is that all three implemented methods leverage the **biweight midcorrelation (`bicor`)**, a robust alternative to Pearson correlation that is less sensitive to outliers. This makes the analyses more reliable, especially with noisy biological data.
 
-1.  **ROS-DET**: Identifies specific gene **pairs** that "switch" their correlation from positive to negative.
-2.  **BMHT**: Ranks individual **genes** based on their overall change in co-expression connectivity.
-3.  **BMKC**: Discovers entire functional **modules** of genes that are co-regulated in one condition but not the other.
+This package makes these powerful algorithms accessible for use on modern RNA-sequencing data by providing a self-contained set of tools with built-in parallel processing to ensure scalability.
 
-## Comparison of Implemented Methods
+### The `dcanr` Toolbox
 
-| Feature | ROS-DET (Kayano et al., 2011) | BMHT (Zheng et al., 2014) | BMKC (Yuan et al., 2015) |
+The three implemented methods offer complementary views of differential co-expression, allowing researchers to move from systems-level discovery to specific, testable hypotheses.
+
+1.  **BMKC `(run_bmkc)`**: Identifies entire functional **modules** of genes that are co-regulated in one condition but not the other. *Best for a high-level view of pathway dysregulation.*
+2.  **BMHT `(run_bmht)`**: Ranks individual **genes** based on their overall change in co-expression connectivity. *Best for identifying key "hub" genes that are significantly rewired.*
+3.  **ROS-DET `(run_rosdet)`**: Finds specific gene **pairs** that "switch" their correlation from positive to negative. *Best for pinpointing specific, interpretable interaction changes.*
+
+### Comparison of Methods
+
+| Feature | BMKC (Module-Level) | BMHT (Gene-Level) | ROS-DET (Pair-Level) |
 | :--- | :--- | :--- | :--- |
-| **Primary Goal** | To identify "switching mechanisms": gene **pairs** that switch from positive to negative correlation. | To identify and rank individual **genes** based on their overall change in co-expression connectivity. | To identify differentially coexpressed gene **modules** or functional communities. |
-| **Core Metric** | **Weighted difference of correlations**. The score for a pair is `c * |r1 - r2|`, where `c` penalizes for differences in expression range (range bias). | **Average change in coexpression**. The score (`dc`) for a gene is the average change in its correlation values against a filtered set of neighbors. | **Threshold-based network construction**. A final network is built by keeping edges only if coexpression is high in one condition and low in the other. |
-| **Filtering Strategy** | **ECOR hypothesis test**. A statistical test removes pairs whose correlation change is not statistically significant, specifically addressing small sample sizes. | **'Half-thresholding'**. A gene pair is kept if its correlation is high in *at least one* of the two conditions. Significance is assessed via permutation test. | **"Differential Coexpression Threshold"**. A final binary network is created based on hard thresholds for both conditions simultaneously. |
-| **Final Output** | A ranked list of significant **gene pairs** with scores and P-values. | A ranked list of individual **genes** with a differential coexpression score, P-value, and FDR. | A set of **gene modules** (cliques), presented as lists of genes. |
-| **Key Strength** | Finds specific, highly interpretable relationships between two genes. Robust to range bias and small sample sizes. | Provides a ranked list of the most "rewired" genes in the network. | Identifies groups of functionally related genes, providing a systems-level view of pathway dysregulation. |
+| **Core Similarity Metric**| Biweight Midcorrelation | Biweight Midcorrelation | Biweight Midcorrelation |
+| **Primary Goal** | Discover functional modules of genes that lose or gain co-regulation. | Rank individual genes by their overall change in network connectivity. | Identify specific gene pairs that switch correlation from positive to negative. |
+| **Final Output** | A set of **gene modules** (cliques). | A ranked list of individual **genes**. | A ranked list of significant **gene pairs**. |
+| **Key Strength** | Provides a systems-level view of pathway disruption. | Identifies the most "rewired" hub genes that may be key drivers. | Finds highly specific, interpretable relationships ideal for generating hypotheses. |
 
-## Installation
+### Installation
 
-You can install the development version of `dcanr` from GitHub with:
+You can install the development version of `dcanr` from GitHub. First, ensure you have `devtools` installed.
 
 ```r
 # install.packages("devtools")
-devtools::install_github("payton_yau/dcanr")
+devtools::install_github("paytonyau/dcanr")
 ```
 
-## Important Note on Data Preparation
+
+### Important Note on Data Preparation
 
 Correlation-based methods are sensitive to the properties of the input data. For meaningful results, especially with RNA-seq data, please ensure your expression matrix is properly processed:
 
 1.  **Filtering:** Remove genes with low expression/variance across all samples.
-2.  **Normalization & Transformation:** Raw counts from RNA-seq must be normalized for library size and transformed to stabilize variance. We strongly recommend using either the **Variance Stabilizing Transformation (VST)** or `rlog` from the `DESeq2` package, or the **`voom`** method from the `limma` package.
+2.  **Normalization & Transformation:** Raw counts from RNA-seq **must** be normalized for library size and transformed to stabilize variance. We strongly recommend using either the **Variance Stabilizing Transformation (VST)** or `rlog` from the `DESeq2` package, or the **`voom`** method from the `limma` package.
 
-## Quick Start Example
+### Analysis Workflow: A Complete Example
 
-Here is a complete example demonstrating how to use the three main functions on a simulated dataset.
+This example demonstrates the intended workflow, from data simulation to running and visualizing the results from all three methods.
+
+#### 1. Load Libraries and Prepare Data
 
 ```r
-# 1. Load the package
 library(dcanr)
 library(ggplot2)
+library(igraph)
 
-# 2. Create a simulated dataset
+# --- Create a simulated dataset ---
 set.seed(42)
-n_genes <- 50
-n_samples <- 40 # 20 per condition
+n_genes <- 100
+n_samples <- 60 # 30 per condition
 expr_matrix <- matrix(rnorm(n_genes * n_samples), nrow = n_genes)
 rownames(expr_matrix) <- paste0("Gene", 1:n_genes)
-colnames(expr_matrix) <- paste0("Sample", 1:n_samples)
+condition <- factor(c(rep("Normal", 30), rep("Tumor", 30)))
 
-condition <- factor(c(rep("Normal", 20), rep("Tumor", 20)))
+# --- Engineer patterns for each model to find ---
+# 1. A switching pair for ROS-DET (Gene5, Gene6)
+expr_matrix["Gene6", condition == "Normal"] <- expr_matrix["Gene5", condition == "Normal"] + rnorm(30, 0, 0.5) # Positive
+expr_matrix["Gene6", condition == "Tumor"]  <- -expr_matrix["Gene5", condition == "Tumor"] + rnorm(30, 0, 0.5) # Negative
 
-# Engineer patterns for demonstration:
-# - A switching pair for ROS-DET (Gene5, Gene6)
-expr_matrix["Gene6", 1:20] <- expr_matrix["Gene5", 1:20] + rnorm(20, 0, 0.5) # Positive
-expr_matrix["Gene6", 21:40] <- -expr_matrix["Gene5", 21:40] + rnorm(20, 0, 0.5) # Negative
-
-# - A co-regulated module for BMHT/BMKC (Genes 10-15)
+# 2. A co-regulated module for BMKC/BMHT (Genes 10-15) that is lost in Tumor
 module_genes <- paste0("Gene", 10:15)
-# Strong correlation in Normal
-for (i in 1:(length(module_genes)-1)) {
-  expr_matrix[module_genes[i+1], 1:20] <- expr_matrix[module_genes[i], 1:20] + rnorm(20, 0, 0.4)
+module_seed <- rnorm(30)
+for (gene in module_genes) {
+  # Strong correlation in Normal
+  expr_matrix[gene, condition == "Normal"] <- module_seed + rnorm(30, sd = 0.1)
+  # Random noise in Tumor
+  expr_matrix[gene, condition == "Tumor"] <- rnorm(30)
 }
-# Weak correlation in Tumor
-expr_matrix[module_genes, 21:40] <- rnorm(length(module_genes) * 20)
+```
 
-# 3. Run the Analyses
+#### 2. Run the Analyses
 
-# Method 1: ROS-DET to find switching pairs
-cat("--- Running ROS-DET ---\n")
-rosdet_results <- run_rosdet(expr_matrix, condition, significance_level = 0.05)
-print(head(rosdet_results))
-#>   Gene1 Gene2     Score      P_value        r1         r2  c_weight
-#> 1 Gene5 Gene6 0.9634887 2.112814e-05 0.7029671 -0.7303358 0.6720173
+We will run all three functions using parallel processing to speed up the computations.
 
-# Method 2: BMHT to rank rewired genes
-cat("\n--- Running BMHT ---\n")
-bmht_results <- run_bmht(expr_matrix, condition, half_threshold = 0.3, n_permutations = 100)
-print(head(bmht_results))
-#>     Gene    DC_Score P_value       FDR
-#> 10 Gene10  0.5593846    0.00 0.0000000
-#> 11 Gene11  0.7226503    0.00 0.0000000
-#> 12 Gene12  0.8662283    0.00 0.0000000
-#> 13 Gene13  0.9839957    0.00 0.0000000
-#> 14 Gene14  1.0827250    0.00 0.0000000
-#> 15 Gene15  1.1685820    0.00 0.0000000
+```r
+# Use 2 workers for parallel processing
+N_WORKERS <- 2
 
+# --- Method 1: BMKC ---
+# First, explore thresholds to find the optimal parameters
+explorer_results <- explore_bmkc_thresholds(
+  expr_matrix, condition,
+  T1_range = seq(0.7, 0.9, by = 0.1),
+  T2_range = seq(0.3, 0.5, by = 0.1),
+  workers = N_WORKERS
+)
 
-# Method 3: BMKC to find co-regulated modules
-cat("\n--- Running BMKC ---\n")
-bmkc_modules <- run_bmkc(expr_matrix, condition, T1 = 0.6, T2 = 0.4, min_clique_size = 4)
-print(bmkc_modules)
+# Visualize the exploration results (optional but recommended)
+plot_bmkc_exploration(explorer_results)
+
+# Run the final analysis with chosen thresholds
+bmkc_results <- run_bmkc(
+  expr_matrix, condition,
+  T1 = 0.8, T2 = 0.4, min_clique_size = 5,
+  workers = N_WORKERS
+)
+
+# --- Method 2: BMHT ---
+bmht_results <- run_bmht(
+  expr_matrix, condition,
+  n_permutations = 500, # Use >=1000 for a real analysis
+  workers = N_WORKERS
+)
+
+# --- Method 3: ROS-DET ---
+rosdet_results <- run_rosdet(
+  expr_matrix, condition,
+  workers = N_WORKERS
+)
+```
+
+#### 3. Interpret and Visualize Results
+
+##### **BMKC Module Results**
+
+The BMKC analysis identifies that the module of genes from Gene10 to Gene15 loses its tight co-expression in the tumor condition.
+
+```r
+cat("--- BMKC Results ---\n")
+print(bmkc_results$modules)
 #> [[1]]
 #> [1] "Gene10" "Gene11" "Gene12" "Gene13" "Gene14" "Gene15"
 
-# 4. Visualize a Top Result from ROS-DET
-if (nrow(rosdet_results) > 0) {
-  top_pair <- rosdet_results[1, ]
-  plot_df <- data.frame(
-    Gene1_Expr = as.numeric(expr_matrix[top_pair$Gene1, ]),
-    Gene2_Expr = as.numeric(expr_matrix[top_pair$Gene2, ]),
-    Condition = condition
-  )
-  
-  ggplot(plot_df, aes(x = Gene1_Expr, y = Gene2_Expr, color = Condition)) +
-    geom_point(alpha = 0.8) +
-    geom_smooth(method = "lm", se = FALSE) +
-    labs(
-      title = paste("ROS-DET Top Switching Pair:", top_pair$Gene1, "&", top_pair$Gene2),
-      subtitle = paste0("Correlation switches from ", round(top_pair$r1, 2), " to ", round(top_pair$r2, 2)),
-      x = paste(top_pair$Gene1, "Expression"),
-      y = paste(top_pair$Gene2, "Expression")
-    ) +
-    theme_bw()
-}
+# Visualize the largest module's connectivity change
+# (Code for this plot is in the package documentation)
 ```
-*Note: The plot image is generated by the code and will not be saved automatically. To include it in your GitHub README, you will need to save the plot and upload it to your repository.*
+**Interpretation:** This result suggests that the biological pathway represented by Genes 10-15 is functionally intact in normal tissue but becomes dysregulated and disorganized in tumor tissue.
 
-## Bug Reports and Contributions
+##### **BMHT Gene Ranking Results**
+
+The BMHT results rank the most "rewired" genes. As expected, the genes from the dysregulated module (10-15) are ranked at the top.
+
+```r
+cat("\n--- BMHT Results (Top 6) ---\n")
+print(head(bmht_results$results))
+#>      Gene  DC_Score P_value   FDR
+#> 15 Gene15 0.7719658   0.000 0.000
+#> 14 Gene14 0.7679383   0.000 0.000
+#> 13 Gene13 0.7621118   0.000 0.000
+#> 12 Gene12 0.7588325   0.000 0.000
+#> 11 Gene11 0.7554587   0.000 0.000
+#> 10 Gene10 0.7495066   0.000 0.000
+```
+**Interpretation:** This tells us that Genes 10-15 have undergone the most significant changes to their network connectivity, marking them as key players in the disease's regulatory rewiring.
+
+##### **ROS-DET Switching Pair Results**
+
+The ROS-DET analysis pinpoints the specific gene pair that flips its correlation sign.
+
+```r
+cat("\n--- ROS-DET Results (Top Result) ---\n")
+print(head(rosdet_results$results, 1))
+#>   Gene1 Gene2     Score      P_value        r1         r2 c_weight
+#> 1 Gene5 Gene6 0.9022416 1.838528e-05 0.6387069 -0.6698188 0.6894086
+```
+**Interpretation:** This result provides a highly specific and testable hypothesis: the relationship between Gene5 and Gene6 is fundamentally inverted in tumors. This could suggest that a shared regulator is lost or a new one is gained, leading to this dramatic switch in behavior.
+
+### Bug Reports and Contributions
 
 If you encounter a bug or have a suggestion for improvement, please open an issue on the GitHub repository page. We welcome contributions! Please feel free to fork the repository and submit a pull request.
 
-## Citation
+### Citation
 
-If you use the methods implemented in this package for your research, please cite the original publications:
+If you use the methods implemented in this package for your research, please cite the original publications.
 
-* **For ROS-DET**: Kayano, M., Takigawa, I., Shiga, M., Tsuda, K., & Mamitsuka, H. (2011). ROS-DET: robust detector of switching mechanisms in gene expression. *Nucleic acids research*, 39(11), e74.
-* **For BMHT**: Zheng, C. H., Yuan, L., Sha, W., & Sun, Z. L. (2014). Gene differential coexpression analysis based on biweight correlation and maximum clique. *BMC bioinformatics*, 15(15), S3.
-* **For BMKC**: Yuan, L., Zheng, C. H., Xia, J. F., & Huang, D. S. (2015). Module based differential coexpression analysis method for type 2 diabetes. *BioMed research international*, 2015.
-
-## License
+### License
 
 This package is licensed under the MIT License.

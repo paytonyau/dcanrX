@@ -1,10 +1,19 @@
 Package: dcanr
+Type: Package
 Title: Differential Co-expression Analysis in R
 Version: 0.1.0
-Author: Your Name <your.email@example.com>
-Description: A unified implementation of three different methods for differential co-expression analysis from the literature: ROS-DET for finding switching pairs, BMHT for ranking differentially co-expressed genes, and BMKC for finding differentially co-expressed modules.
-Depends: R (>= 4.0.0)
-Imports: WGCNA, igraph, stats, utils
+Authors@R: c(
+    person(
+      "Payton", "Yau",
+      email = "tungon@gmail.com",
+      role = c("aut", "cre")
+    )
+  )
+Description: A unified implementation of three methods for differential co-expression analysis from the literature: ROS-DET for finding switching pairs, BMHT for ranking differentially co-expressed genes, and BMKC for finding differentially co-expressed modules.
 License: MIT
 Encoding: UTF-8
+LazyData: true
 RoxygenNote: 7.3.2
+Imports: ggplot2, igraph, stats, utils, parallel
+
+
