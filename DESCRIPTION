@@ -1,19 +1,66 @@
-Package: dcanr
-Type: Package
-Title: Differential Co-expression Analysis in R
-Version: 0.1.0
-Authors@R: c(
-    person(
-      "Payton", "Yau",
-      email = "tungon@gmail.com",
-      role = c("aut", "cre")
-    )
-  )
-Description: A unified implementation of three methods for differential co-expression analysis from the literature: ROS-DET for finding switching pairs, BMHT for ranking differentially co-expressed genes, and BMKC for finding differentially co-expressed modules.
-License: MIT
+Package: bicorDCEA
+Title: Biweight Midcorrelation Differential Co-expression Analysis
+Version: 0.99.0
+Authors@R: 
+    person(given = "Payton",
+           family = "Yau",
+           email = "tungon@gmail.com",
+           role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0002-3283-0370"))
+Description: Robust differential co-expression analysis using biweight 
+    midcorrelation (bicor). Implements three complementary methods: 
+    BMKC (module-level cliques), BMHT (gene-level rewiring), and 
+    ROS-DET (pair-level correlation switching). The package supports 
+    both bulk RNA-seq and single-cell RNA-seq (via pseudobulk) and 
+    includes advanced features such as CLR transformation, spatial 
+    domain iteration, and cross-species mode, making it particularly 
+    suitable for microbial, spatial, and metatranscriptomic interaction 
+    studies. Includes a comprehensive, cross-platform visualization suite 
+    for plotting interactive network topologies, raincloud module 
+    eigengenes, and dynamic rewiring trajectories.
+License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 7.3.2
-Imports: ggplot2, igraph, stats, utils, parallel
-
-
+biocViews: 
+    GeneExpression, 
+    NetworkInference, 
+    SingleCell, 
+    Spatial,
+    StatisticalMethod, 
+    Transcriptomics, 
+    Microbiome
+URL: https://github.com/yourusername/bicorDCEA
+BugReports: https://github.com/yourusername/bicorDCEA/issues
+Depends: 
+    R (>= 4.2.0)
+Imports:
+    BiocParallel,
+    igraph,
+    ggplot2,
+    ggraph,
+    ggrepel,
+    ggdist,
+    patchwork,
+    SummarizedExperiment,
+    SingleCellExperiment,
+    scuttle,
+    stats,
+    utils,
+    methods
+Suggests:
+    WGCNA,
+    visNetwork,
+    UpSetR,
+    circlize,
+    gganimate,
+    transformr,
+    plotly,
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown,
+    scran,
+    DESeq2,
+    BiocStyle,
+    BiocCheck
+VignetteBuilder: knitr
+Config/roxygen2/version: 8.0.0

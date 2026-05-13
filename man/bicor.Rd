@@ -2,26 +2,20 @@
 % Please edit documentation in R/utils.R
 \name{bicor}
 \alias{bicor}
-\title{Calculate Biweight Midcorrelation (bicor)}
+\title{Biweight Midcorrelation (bicor) with Pearson Fallback}
 \usage{
 bicor(x, y)
 }
 \arguments{
-\item{x}{A numeric vector.}
+\item{x}{Numeric vector}
 
-\item{y}{A numeric vector.}
+\item{y}{Numeric vector}
 }
 \value{
-The biweight midcorrelation coefficient.
+Numeric scalar between -1 and 1 (NA if insufficient data)
 }
 \description{
-A robust measure of correlation that is less sensitive to outliers than
-Pearson correlation. This is an independent implementation based on the
-formulas described by Kayano et al. (2011), Zheng et al. (2014),
-and Yuan et al. (2015).
-}
-\details{
-Calculate Biweight Midcorrelation (bicor)
-
-A robust measure of correlation that is less sensitive to outliers.
+A robust measure of correlation, highly resistant to outliers.
+Includes a fallback to Pearson correlation for highly sparse vectors
+(Zero-MAD problem common in single-cell data).
 }
