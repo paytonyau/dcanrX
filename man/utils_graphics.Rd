@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils_graphics.R
 \name{utils_graphics}
 \alias{utils_graphics}
-\title{bicorDCEA Utilities and Graphics Theme}
+\title{bicorX Utilities and Graphics Theme}
 \description{
 Shared themes, color palettes, and multi-method comparison visualizations.
 }

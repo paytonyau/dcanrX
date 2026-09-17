@@ -1,66 +1,63 @@
-Package: bicorDCEA
-Title: Biweight Midcorrelation Differential Co-expression Analysis
-Version: 0.99.0
-Authors@R: 
-    person(given = "Payton",
-           family = "Yau",
-           email = "tungon@gmail.com",
-           role = c("aut", "cre"),
-           comment = c(ORCID = "0000-0002-3283-0370"))
-Description: Robust differential co-expression analysis using biweight 
-    midcorrelation (bicor). Implements three complementary methods: 
-    BMKC (module-level cliques), BMHT (gene-level rewiring), and 
-    ROS-DET (pair-level correlation switching). The package supports 
-    both bulk RNA-seq and single-cell RNA-seq (via pseudobulk) and 
-    includes advanced features such as CLR transformation, spatial 
-    domain iteration, and cross-species mode, making it particularly 
-    suitable for microbial, spatial, and metatranscriptomic interaction 
-    studies. Includes a comprehensive, cross-platform visualization suite 
-    for plotting interactive network topologies, raincloud module 
-    eigengenes, and dynamic rewiring trajectories.
+Package: bicorX
+Type: Package
+Title: Robust Differential Co-Expression Analysis for Compositional and Multi-Omics Data
+Authors@R: person("Payton", "Yau", email = "tungon@gmail.com",
+    role = c("aut", "cre"))
+Version: 0.0.1
+Description: Robust differential co-expression analysis based on biweight
+    midcorrelation, extending three previously-published, never-packaged
+    methods for modern multi-omics and compositional data: BMHT (Zheng,
+    Yuan, Sha & Sun (2014) <doi:10.1186/1471-2105-15-S15-S3>), ROS-DET
+    (Kayano, Takigawa, Shiga, Tsuda & Mamitsuka (2011)
+    <doi:10.1093/nar/gkr130>), and BMKC (Yuan, Zheng, Xia & Huang (2015)
+    <doi:10.1155/2015/836929>). Includes explicit, documented departures
+    from the original methods where scale or the compositional/multi-omics
+    data regime required them (e.g. k-core decomposition in place of exact
+    k-clique percolation for BMKC's module extraction; see NEWS.md and the
+    package vignettes for a full per-method fidelity account) - this is not
+    presented as a strictly faithful reimplementation of any of the three.
+SystemRequirements: An optimized BLAS (e.g. OpenBLAS) is strongly
+    recommended over R's default reference BLAS. Measured ~1.3-1.4x
+    speedup on the correlation-matrix computation that dominates this
+    package's runtime, at zero code changes - purely a matter of which
+    BLAS library R is linked against. On Debian/Ubuntu:
+    'sudo update-alternatives --config libblas.so.3-x86_64-linux-gnu'
+    after installing 'libopenblas0-pthread' (or '-serial'/'-openmp'
+    depending on your threading needs). Check your current BLAS with
+    'sessionInfo()'.
 License: MIT + file LICENSE
+URL: https://github.com/paytonyau/bicorX
+BugReports: https://github.com/paytonyau/bicorX/issues
 Encoding: UTF-8
-LazyData: true
-biocViews: 
-    GeneExpression, 
-    NetworkInference, 
-    SingleCell, 
-    Spatial,
-    StatisticalMethod, 
-    Transcriptomics, 
-    Microbiome
-URL: https://github.com/yourusername/bicorDCEA
-BugReports: https://github.com/yourusername/bicorDCEA/issues
-Depends: 
-    R (>= 4.2.0)
+Depends: R (>= 4.1)
 Imports:
-    BiocParallel,
+    Rcpp,
+    stats,
+    utils,
+    matrixStats,
+    progress,
+    parallel,
     igraph,
+    rlang
+LinkingTo:
+    Rcpp,
+    RcppArmadillo
+Suggests:
+    testthat (>= 3.0.0),
+    WGCNA,
     ggplot2,
     ggraph,
     ggrepel,
-    ggdist,
-    patchwork,
+    visNetwork,
     SummarizedExperiment,
     SingleCellExperiment,
+    MultiAssayExperiment,
+    SeuratObject,
+    Seurat,
     scuttle,
-    stats,
-    utils,
-    methods
-Suggests:
-    WGCNA,
-    visNetwork,
     UpSetR,
-    circlize,
-    gganimate,
-    transformr,
-    plotly,
-    testthat (>= 3.0.0),
     knitr,
-    rmarkdown,
-    scran,
-    DESeq2,
-    BiocStyle,
-    BiocCheck
+    rmarkdown
 VignetteBuilder: knitr
-Config/roxygen2/version: 8.0.0
+RoxygenNote: 7.3.1
+Config/testthat/edition: 3

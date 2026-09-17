@@ -2,8 +2,8 @@
 % Please edit documentation in R/utils.R
 \name{utils}
 \alias{utils}
-\title{Utility Functions for bicorDCEA}
+\title{Utility Functions for bicorX}
 \description{
 Core utilities: biweight midcorrelation (bicor),
-biweight midvariance, correlation matrix computation, and input validation.
+biweight midvariance, and input validation.
 }

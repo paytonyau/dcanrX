@@ -1,0 +1,8 @@
+src/*.o
+src/*.so
+src/*.dll
+*.Rhistory
+.Rproj.user/
+vignettes/*.R
+vignettes/*.html
+*.out

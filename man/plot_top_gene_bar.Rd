@@ -4,8 +4,18 @@
 \alias{plot_top_gene_bar}
 \title{Top Gene Connectivity Bar Chart (BMHT)}
 \usage{
-plot_top_gene_bar(bmht_result, n_top = 15)
+plot_top_gene_bar(bmht_result, n_top = 15, ...)
+}
+\arguments{
+\item{bmht_result}{A `bmht_result` object from [run_bmht()].}
+
+\item{n_top}{Number of top-ranked genes to display. Default `15`.}
+
+\item{...}{Currently unused; accepted for S3 compatibility.}
+}
+\value{
+A `ggplot` object.
 }
 \description{
-Renders a bar chart of the most heavily rewired genes.
+Top Gene Connectivity Bar Chart (BMHT)
 }

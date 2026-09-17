@@ -4,5 +4,5 @@
 \alias{bmkc_plots}
 \title{BMKC Visualization Suite}
 \description{
-Plotting functions for Biweight Midcorrelation K-Cliques (BMKC) and Module Dynamics.
+Plotting functions for Biweight Midcorrelation K-Clique (BMKC) modules and their dynamics across conditions.
 }

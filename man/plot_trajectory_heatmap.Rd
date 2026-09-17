@@ -12,6 +12,20 @@ plot_trajectory_heatmap(
   window_size = 30
 )
 }
+\arguments{
+\item{expr_matrix}{Numeric matrix, features (rows) by cells (columns).}
+
+\item{geneA, geneB}{Names of the two features whose rolling correlation
+is to be plotted.}
+
+\item{pseudotime_vec}{Numeric vector of pseudotime values, one per
+column of `expr_matrix`.}
+
+\item{window_size}{Number of cells per sliding window. Default `30`.}
+}
+\value{
+A `ggplot` object.
+}
 \description{
-For scRNA-seq trajectory analysis. Plots how the correlation between two genes changes dynamically over pseudotime.
+Plot Rolling Trajectory Heatmap
 }

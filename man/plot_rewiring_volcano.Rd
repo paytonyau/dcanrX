@@ -4,8 +4,18 @@
 \alias{plot_rewiring_volcano}
 \title{Rewiring Volcano Plot (BMHT)}
 \usage{
-plot_rewiring_volcano(bmht_result, n_label = 10)
+plot_rewiring_volcano(bmht_result, n_label = 10, ...)
+}
+\arguments{
+\item{bmht_result}{A `bmht_result` object from [run_bmht()].}
+
+\item{n_label}{Number of top genes to label. Default `10`.}
+
+\item{...}{Currently unused; accepted for S3 compatibility.}
+}
+\value{
+A `ggplot` object.
 }
 \description{
-Plots Differential Co-expression (DC) Score vs Significance.
+Rewiring Volcano Plot (BMHT)
 }

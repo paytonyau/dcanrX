@@ -1,0 +1,195 @@
+---
+title: "Custom plots from bicorX results"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Custom plots from bicorX results}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+## Why this vignette exists
+
+Earlier versions of bicorX exported around 40 plotting functions - one
+for nearly every combination of method (BMHT/BMKC/ROS-DET) and data
+modality (bulk, single-cell, spatial, microbiome). Most of them were
+thin wrappers around the same few ideas (a volcano plot, a network
+diagram, a heatmap, an embedding overlay) applied to slightly different
+inputs, and each one was a function signature, a help page, and a
+maintenance burden that almost nobody used.
+
+As of this release, the package ships eight core plotting functions,
+covering the visualizations most people reach for first:
+
+| Function | Method | What it shows |
+|---|---|---|
+| `plot_rewiring_volcano()` | BMHT | DC score vs. -log10(FDR) |
+| `plot_top_gene_bar()` | BMHT | Top rewired genes, ranked |
+| `plot_module_heatmap()` | BMKC | Before/after correlation heatmap for a module |
+| `plot_module_eigengene()` | BMKC | Module eigengene across conditions |
+| `plot_umap_eigengene()` | BMKC | Module eigengene projected onto a UMAP (needs Seurat) |
+| `plot_differential_network()` | BMHT & BMKC | Rewired-edge network diagram |
+| `plot_rosdet_quadrant()` | ROS-DET | Correlation in condition A vs. B, per pair |
+| `plot_edge_volcano()` | ROS-DET | Distance score vs. -log10(FDR), per pair |
+
+Everything else - taxa/microbiome breakdowns, causal-driver overlays,
+hive plots, 3D networks, spatial coordinate overlays, chord diagrams,
+raincloud plots, and so on - is one `ggplot2`/`igraph`/`Seurat` call away
+from the result object itself. This vignette shows the pattern, using
+the same data every result object already carries.
+
+## What's in a result object
+
+Every `run_bmht()`/`run_bmkc()`/`run_rosdet()` call returns a list with a
+`results` data.frame (the per-gene or per-pair statistics) and a `data`
+list (the input expression matrix, condition vector, and species vector,
+if any) - so you always have everything needed to build a custom view.
+
+```{r, eval = FALSE}
+library(bicorX)
+
+res_bmht <- run_bmht(expr_matrix, condition, n_permutations = 1000)
+
+names(res_bmht)
+#> [1] "results" "n_permutations" "half_threshold" "significance_level"
+#> [5] "species_mode" "transform" "data"
+
+head(res_bmht$results)
+#>       Gene DC_Score    P_value        FDR
+#> 1 Gene_007 2.549791 0.00990099 0.01094032
+#> ...
+
+str(res_bmht$data, max.level = 1)
+#> List of 3
+#>  $ expr_matrix: num [1:200, 1:24] ...
+#>  $ condition  : Factor w/ 2 levels "A","B": 1 1 1 ...
+#>  $ species    : NULL
+```
+
+ROS-DET results have the same shape, but `results` is a per-pair table
+(`Gene1`, `Gene2`, `Distance_Score`, `P_value`, `FDR`, `r1`, `r2`,
+`c_weight`) and there's an additional `n_tested` field. BMKC results
+replace `results` with a `modules` list (one character vector of gene
+names per module) and an `n_modules` count.
+
+## Example 1: a taxa/microbiome breakdown (was `plot_taxa_rewiring`)
+
+If you're working with compositional data and have a taxonomy table on
+the side, join it to `results` by gene/feature name and facet or color
+by rank - there's no need for a dedicated function:
+
+```{r, eval = FALSE}
+library(ggplot2)
+
+# taxa_df: a data.frame with columns Gene, Phylum (or your rank of choice)
+merged <- merge(res_bmht$results, taxa_df, by = "Gene")
+
+ggplot(merged, aes(x = reorder(Gene, DC_Score), y = DC_Score, fill = Phylum)) +
+  geom_col() +
+  coord_flip() +
+  facet_wrap(~ Phylum, scales = "free_y") +
+  labs(x = NULL, y = "DC Score", title = "Rewiring by taxonomic group") +
+  theme_bicor()
+```
+
+## Example 2: a causal-driver / ego network (was `plot_causal_network`, `plot_ego_switching`)
+
+`plot_differential_network()` already builds an `igraph` object
+internally; the same recipe - recompute condition-specific correlation
+matrices, threshold the difference, build a graph - generalizes to any
+custom layout, coloring, or subsetting you want. To focus on one gene's
+neighborhood (an "ego network"):
+
+```{r, eval = FALSE}
+library(igraph)
+
+genes <- head(res_bmht$results$Gene, 30)
+expr_sub <- res_bmht$data$expr_matrix[genes, , drop = FALSE]
+cond <- res_bmht$data$condition
+
+cor1 <- cpp_calc_observed_bicor(expr_sub[, cond == levels(cond)[1]])
+cor2 <- cpp_calc_observed_bicor(expr_sub[, cond == levels(cond)[2]])
+rownames(cor1) <- colnames(cor1) <- rownames(cor2) <- colnames(cor2) <- genes
+
+adj_diff <- cor2 - cor1
+adj_diff[abs(adj_diff) < 0.3] <- 0
+
+g <- graph_from_adjacency_matrix(adj_diff, mode = "undirected", weighted = TRUE, diag = FALSE)
+
+# Ego network: just the target gene and its immediate rewired neighbors
+target <- genes[1]
+ego_nodes <- c(target, neighbors(g, target)$name)
+g_ego <- induced_subgraph(g, ego_nodes)
+
+plot(g_ego, vertex.color = ifelse(V(g_ego)$name == target, "orange", "steelblue"),
+     edge.color = ifelse(E(g_ego)$weight > 0, "red3", "steelblue4"),
+     main = paste("Rewired neighbors of", target))
+```
+
+## Example 3: a UMAP overlay for a different statistic (was `plot_umap_disruption_landscape`, `plot_umap_dual_cliques`, `plot_umap_edge_activity`)
+
+`plot_umap_eigengene()` covers the single most common case (module
+eigengene on a UMAP). For anything else - a per-cell disruption score, a
+dual-module comparison, or an edge-activity score - the pattern is the
+same: compute a per-cell score, add it as a Seurat metadata column or
+module score, and let `Seurat::FeaturePlot()` do the rest.
+
+```{r, eval = FALSE}
+library(Seurat)
+
+top_genes <- head(res_bmht$results$Gene, 20)
+valid_genes <- intersect(top_genes, rownames(sc_obj))
+
+sc_obj <- AddModuleScore(sc_obj, features = list(valid_genes), name = "Disruption")
+FeaturePlot(sc_obj, features = "Disruption1", reduction = "umap") +
+  scale_color_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0)
+```
+
+## Example 4: a spatial overlay (was `plot_spatial_coords`, `plot_spatial_density`, `plot_spatial_tissue`, `plot_spatial_edge`, `plot_network_proximity`)
+
+If your data has spatial coordinates (a `Seurat` spatial object, or a
+plain data.frame of x/y positions), the same "compute a per-feature
+score, then map it onto coordinates" pattern applies:
+
+```{r, eval = FALSE}
+genes <- res_bmkc$modules[[1]]
+module_expr <- colMeans(res_bmkc$data$expr_matrix[genes, , drop = FALSE])
+
+spatial_df <- data.frame(x = spatial_coords[, 1], y = spatial_coords[, 2],
+                          score = module_expr[rownames(spatial_coords)])
+
+ggplot(spatial_df, aes(x, y, color = score)) +
+  geom_point(size = 2) +
+  scale_color_viridis_c() +
+  coord_fixed() +
+  labs(title = "Module activity across spatial coordinates") +
+  theme_bicor()
+```
+
+## Example 5: comparing results across methods (was `plot_method_overlap`)
+
+```{r, eval = FALSE}
+library(UpSetR)
+
+sig_bmht <- res_bmht$results$Gene[res_bmht$results$FDR < 0.05]
+sig_rosdet <- unique(c(res_rosdet$results$Gene1, res_rosdet$results$Gene2)
+                      [res_rosdet$results$FDR < 0.05])
+sig_bmkc <- unique(unlist(res_bmkc$modules))
+
+upset(fromList(list(BMHT = sig_bmht, `ROS-DET` = sig_rosdet, BMKC = sig_bmkc)),
+      order.by = "freq")
+```
+
+## A note on `theme_bicor()` and `bicor_palette()`
+
+Both are still exported and designed to be dropped into any custom
+`ggplot2` call, so your own plots match the look of the built-in ones:
+
+```{r, eval = FALSE}
+ggplot(res_bmht$results, aes(DC_Score, -log10(FDR))) +
+  geom_point(color = bicor_palette()["Condition1"]) +
+  theme_bicor()
+```

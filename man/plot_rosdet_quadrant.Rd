@@ -4,8 +4,18 @@
 \alias{plot_rosdet_quadrant}
 \title{The Quadrant Scatter (ROS-DET "Flip-Flop" Proof)}
 \usage{
-plot_rosdet_quadrant(rosdet_result, n_label = 15)
+plot_rosdet_quadrant(rosdet_result, n_label = 15, ...)
+}
+\arguments{
+\item{rosdet_result}{A `rosdet_result` object from [run_rosdet()].}
+
+\item{n_label}{Number of top pairs to label. Default `15`.}
+
+\item{...}{Currently unused; accepted for S3 compatibility.}
+}
+\value{
+A `ggplot` object.
 }
 \description{
-Plots Cond1 vs Cond2 correlation to visualize the complete inversion.
+Plots Cond1 vs Cond2 correlation to visualize complete edge inversion and decoupling.
 }

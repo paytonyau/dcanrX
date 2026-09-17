@@ -4,23 +4,27 @@
 \alias{plot.bmht_result}
 \title{Plot Method for BMHT Results}
 \usage{
-\method{plot}{bmht_result}(
-  x,
-  type = c("default", "volcano", "bar", "hubs", "topology", "shift", "causal", "hive",
-    "eruption", "animation", "3d", "taxa", "microbiome"),
-  ...
-)
+\method{plot}{bmht_result}(x, type = c("default", "volcano", "bar", "topology"), ...)
 }
 \arguments{
-\item{x}{A \code{bmht_result} object.}
+\item{x}{A `bmht_result` object from [run_bmht()].}
 
-\item{type}{Character. The type of plot to generate. Options include:
-"volcano", "bar", "hubs", "topology", "shift", "causal", "hive",
-"eruption", "animation", "3d", "taxa", or "microbiome".}
+\item{type}{Which plot to draw: `"default"`/`"volcano"` for the
+rewiring volcano, `"bar"` for the top-gene bar chart, or
+`"topology"` for the differential network.}
 
-\item{...}{Additional arguments passed to the specific plotting function
-(e.g., \code{taxa_df} for microbiome plots, or \code{n_top} for bar charts).}
+\item{...}{Passed to the underlying plotting function.}
+}
+\value{
+A `ggplot` object.
 }
 \description{
-S3 method to easily route plotting commands based on the desired visualization type.
+As of the Phase 3 surface reduction, only three plot types are provided
+directly: `"volcano"` (default), `"bar"`, and `"topology"` (a differential
+network shared with BMKC results). For other visualizations (drivers,
+causal networks, spatial/UMAP overlays, taxa/microbiome breakdowns), see
+the "Custom plots from bicorX results" vignette, which shows how to
+build them directly from `x$results` and `x$data` using ggplot2/igraph/
+Seurat - the same approach the removed convenience functions used
+internally.
 }

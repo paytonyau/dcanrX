@@ -7,15 +7,18 @@
 identify_causal_drivers(bmht_result, tf_list, top_pct = 0.05)
 }
 \arguments{
-\item{bmht_result}{The output object from `run_bmht()`.}
+\item{bmht_result}{A `bmht_result` object from [run_bmht()].}
 
-\item{tf_list}{A character vector of known Transcription Factor gene symbols.}
+\item{tf_list}{Character vector of transcription factor (or other
+regulator) gene names to test for enrichment among top-ranked hubs.}
 
-\item{top_pct}{Numeric. The top percentage of hubs (by score) to consider as master regulators (default: 0.05 for top 5%).}
+\item{top_pct}{Proportion of top-ranked genes (by `DC_Score`) to treat
+as hubs. Default `0.05` (top 5\%).}
 }
 \value{
-An updated `bmht_result` object with a new `$causal_drivers` dataframe.
+The `bmht_result`'s results data frame with added `Is_TF` and
+  `Causal_Driver` logical columns.
 }
 \description{
-Identifies putative causal drivers by cross-referencing highly rewired BMHT hubs with known Transcription Factors.
+Annotate Causal Drivers (TF-Guided BMHT)
 }

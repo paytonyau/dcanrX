@@ -7,10 +7,15 @@
 export_cytoscape(rosdet_result, output_dir = "Cytoscape_Networks/")
 }
 \arguments{
-\item{rosdet_result}{The output object from `run_rosdet()`, preferably annotated with directions.}
+\item{rosdet_result}{A `rosdet_result` object from [run_rosdet()].}
 
-\item{output_dir}{String. The directory to save the CSV files.}
+\item{output_dir}{Directory to write the node and edge tables to.
+Created if it does not exist. Default `"Cytoscape_Networks/"`.}
+}
+\value{
+Invisibly, the output directory path. Called for its side
+  effect of writing Cytoscape-compatible node and edge tables.
 }
 \description{
-Generates Cytoscape-ready Node and Edge tables from a ROS-DET result object.
+Export ROS-DET Network for Cytoscape
 }

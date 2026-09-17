@@ -2,16 +2,45 @@
 % Please edit documentation in R/core_bmkc_plots.R
 \name{plot_differential_network}
 \alias{plot_differential_network}
-\title{Differential Edge Network (BMKC/BMHT) - Direction-Aware}
+\title{Differential Edge Network (BMKC/BMHT) - Direction & Single-Cell Aware}
 \usage{
 plot_differential_network(
   result,
   module_index = 1,
   n_top = 20,
   min_diff = 0.3,
-  interactive = FALSE
+  interactive = FALSE,
+  sc_obj = NULL,
+  ...
 )
 }
+\arguments{
+\item{result}{A `bmkc_result` or `bmht_result` object.}
+
+\item{module_index}{Which detected module to plot (BMKC only).
+Default `1`.}
+
+\item{n_top}{Maximum number of nodes to display. Default `20`.}
+
+\item{min_diff}{Minimum absolute correlation difference for an edge to
+be drawn. Default `0.3`.}
+
+\item{interactive}{If `TRUE`, render an interactive `visNetwork` plot
+instead of a static `ggraph` one. Default `FALSE`.}
+
+\item{sc_obj}{Optional Seurat object, used only for node annotation.}
+
+\item{...}{Currently unused; accepted for S3 compatibility.}
+}
+\value{
+A `ggraph`/`ggplot` object, or a `visNetwork` widget when
+  `interactive = TRUE`.
+}
 \description{
-Plots the physical network of a module or top hubs, highlighting changed edges.
+Works with both `bmkc_result` and `bmht_result` objects. This used to be
+defined twice (identically-named, divergent implementations in both
+core_bmht_plots.R and core_bmkc_plots.R) - whichever file loaded second
+silently won, and the two copies had drifted apart (one was missing
+rownames/colnames on the recomputed correlation matrices, which corrupts
+node labeling). This is now the single canonical definition.
 }

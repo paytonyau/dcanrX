@@ -7,14 +7,21 @@
 run_trajectory_rosdet(expr_matrix, pseudotime, window_size = 50, workers = 1)
 }
 \arguments{
-\item{expr_matrix}{A dense expression matrix (rows = genes, columns = cells/samples).}
+\item{expr_matrix}{Numeric matrix, features (rows) by cells/samples
+(columns).}
 
-\item{pseudotime}{A numeric vector representing the timeline or developmental stage of each cell.}
+\item{pseudotime}{Numeric vector of pseudotime values, one per column
+of `expr_matrix`.}
 
-\item{window_size}{The number of cells to include in a single time window.}
+\item{window_size}{Number of cells per sliding pseudotime window.
+Default `50`.}
 
-\item{workers}{Number of cores for parallel processing.}
+\item{workers}{Number of OpenMP threads. Default `1`.}
+}
+\value{
+A list of per-window ROS-DET results describing how pairwise
+  co-expression changes along the trajectory.
 }
 \description{
-Identifies network correlation switches across a continuous pseudotime trajectory.
+Trajectory-Aware ROS-DET (Sliding Window Network Rewiring)
 }

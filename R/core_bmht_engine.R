@@ -1,190 +1,204 @@
 #' @title BMHT: Biweight Midcorrelation + Half-Thresholding Method
 #' @description Ranks individual genes by their differential co-expression
-#' connectivity (rewiring) between two conditions using bicor.
-#' Supports CLR transformation for microbiome and cross-species mode.
+#' connectivity (rewiring) between two conditions using bicor. The observed
+#' and permutation-null statistics are computed in C++; see bmht_cpp.cpp.
 #'
-#' @importFrom stats p.adjust
-#' @importFrom BiocParallel bplapply MulticoreParam SerialParam SnowParam bpparam
-#' @importFrom ggplot2 ggplot aes geom_col coord_flip labs theme_minimal
+#' @importFrom stats p.adjust mad
+#' @importFrom Rcpp sourceCpp
+#' @importFrom progress progress_bar
+#' @importFrom matrixStats rowMads
+#' @importFrom parallel detectCores
+#' @useDynLib bicorX, .registration = TRUE
 #' @name bhmt
 NULL
 
 #' Run BMHT Analysis
-#'
-#' @param expr_matrix Numeric matrix (genes × samples)
-#' @param condition Factor/character vector with exactly two levels
-#' @param half_threshold Minimum absolute correlation to consider an edge informative
-#' @param n_permutations Number of permutations for significance testing
-#' @param significance_level FDR threshold (default 0.05)
-#' @param workers Number of parallel workers
-#' @param transform Compositional transformation ("none", "clr", "log1p")
-#' @param species Optional character vector indicating species for each gene
-#' @param seed Integer seed for exact reproducibility across parallel runs
-#' @return An object of class `bmht_result`
-#' @export
-run_bmht <- function(expr_matrix, condition,
-                     half_threshold = 0.4,
-                     n_permutations = 1000,
-                     significance_level = 0.05,
-                     workers = 1,
-                     transform = c("none", "clr", "log1p"),
-                     species = NULL,
-                     seed = 42) {
+#' @details
+#' On the one real ground-truth benchmark available for this package
+#' (dcanr's `sim102`; paper-fidelity review follow-up), ranking genes by
+#' `DC_Score` (the raw effect size) noticeably outperformed ranking by
+#' `P_value`/`FDR` for identifying true differential-coexpression genes
+#' (AUPRC 0.8895 vs. 0.7931, gene-level ground truth) - the opposite of
+#' what happened for ROS-DET's analytical significance method, where
+#' p-value-based ranking was dramatically better than the raw score. The
+#' likely reason: `P_value` normalizes each gene's `DC_Score` by that
+#' gene's own permutation-null variance, which differs across genes
+#' (fewer informative edges -> noisier null); on this dataset that
+#' normalization reordered genes slightly worse than the raw score did.
+#' This is not fully mechanistically isolated (would need a dedicated
+#' follow-up to confirm precisely why), but the practical
+#' recommendation is clear: prefer `DC_Score` for **ranking**/identifying
+#' the best candidate genes, and use `FDR` only for a calibrated
+#' significance **cutoff** decision (FDR's calibration itself is
+#' unaffected by this - see `tests/testthat/test-bmht-calibration.R`).
+#' Unlike ROS-DET (`ecor_pvalue()`), Zheng et al.'s BMHT paper does not
+#' specify an analytical alternative to permutation testing, so this
+#' ranking behavior is not expected to change without further work.
+#' @keywords internal
+.run_bmht_matrix <- function(expr_matrix, condition,
+                             half_threshold = 0.4,
+                             n_permutations = 1000,
+                             significance_level = 0.05,
+                             workers = 1,
+                             transform = c("none", "clr", "rclr", "log1p"),
+                             species = NULL,
+                             seed = 42) {
 
-  # Ensure strict reproducibility for baseline operations
   if (!is.null(seed)) set.seed(seed)
-
   condition <- .validate_input(expr_matrix, condition)
   transform <- match.arg(transform)
 
-  # Strict validation for species mode to prevent silent failures
+  # ===================================================================
+  # 0. User Experience Guard Rails & Warning Messages
+  # ===================================================================
+  phys_cores <- parallel::detectCores(logical = FALSE)
+  if (workers > phys_cores) {
+    warning(sprintf("Thread Optimization: Requested workers (%d) exceeds physical hardware cores (%d).\n", workers, phys_cores),
+            "Resetting workers to match physical cores to optimize cache layout and maximize speed.")
+    workers <- max(1, phys_cores)
+  }
+
+  feature_mads <- matrixStats::rowMads(expr_matrix, na.rm = TRUE)
+  keep <- feature_mads > 0
+  if (any(!keep, na.rm = TRUE)) {
+    warning("Zero Variance Alert: Some features have a Median Absolute Deviation (MAD) of exactly 0.\n",
+            "BMHT has automatically filtered these silent features to prevent matrix arithmetic errors.")
+    expr_matrix <- expr_matrix[keep, , drop = FALSE]
+    if (!is.null(species)) species <- species[keep]
+  }
+
+  group_sizes <- table(condition)
+  if (max(group_sizes) / min(group_sizes) > 4) {
+    warning("Severe Cohort Imbalance: Group sizes are highly asymmetrical (",
+            paste(group_sizes, collapse = " vs "), ").\n",
+            "Permutation-derived empirical p-values may exhibit inflated Type I error rates.")
+  }
+
   species_mode <- FALSE
   if (!is.null(species)) {
-    if (length(species) != nrow(expr_matrix)) {
-      stop("Length of `species` must exactly match the number of rows in `expr_matrix`.")
-    }
+    if (length(species) != nrow(expr_matrix)) stop("Length of `species` must exactly match rows.")
     species_mode <- TRUE
     species <- as.character(species)
   }
 
   conditions <- levels(condition)
-
-  # Prevent variance calculation crashes from highly unbalanced/small groups
-  n_c1 <- sum(condition == conditions[1])
-  n_c2 <- sum(condition == conditions[2])
-  if (n_c1 < 3 || n_c2 < 3) {
-    stop("BMHT requires at least 3 samples per condition to compute valid midvariances.")
+  if (sum(condition == conditions[1]) < 3 || sum(condition == conditions[2]) < 3) {
+    stop("BMHT requires at least 3 samples per condition.")
   }
 
-  # Apply compositional transformation (Handles Microbiome / Sparsity)
   expr_matrix <- .compositional_transform(expr_matrix, transform = transform, species = species)
+  n_genes <- nrow(expr_matrix)
 
-  # Compute observed correlation matrices
-  message("Computing observed bicor matrices...")
-  cor_1 <- compute_cor_matrix(expr_matrix[, condition == conditions[1]], workers = workers)
-  cor_2 <- compute_cor_matrix(expr_matrix[, condition == conditions[2]], workers = workers)
+  # ===================================================================
+  # 1. Base Topological Architecture with Scale-Free Normalization
+  # ===================================================================
+  message("Computing observed bicor matrices with Topological Scaling Factor (MAD Normalization)...")
 
-  diag(cor_1) <- diag(cor_2) <- 0
+  # Map observed calculations straight to native C++ layout for strict numeric parity
+  cor_1 <- cpp_bmht_observed_bicor(expr_matrix[, condition == conditions[1], drop = FALSE])
+  cor_2 <- cpp_bmht_observed_bicor(expr_matrix[, condition == conditions[2], drop = FALSE])
+  cor_1[is.na(cor_1)] <- 0
+  cor_2[is.na(cor_2)] <- 0
 
-  # Safe half-thresholding mask (handling potential NAs properly)
+  # Compute observed static background macro-density stabilizers via MAD
+  mad_1 <- stats::mad(cor_1[lower.tri(cor_1)], na.rm = TRUE)
+  mad_2 <- stats::mad(cor_2[lower.tri(cor_2)], na.rm = TRUE)
+
+  # Floor adjusted to 0.05 to maintain scale separation in noisy sets
+  if (is.na(mad_1) || mad_1 < 0.05) mad_1 <- 1.0
+  if (is.na(mad_2) || mad_2 < 0.05) mad_2 <- 1.0
+
+  cor_1_scaled <- cor_1 / mad_1
+  cor_2_scaled <- cor_2 / mad_2
+
   informative_mask <- (abs(cor_1) > half_threshold) | (abs(cor_2) > half_threshold)
   informative_mask[is.na(informative_mask)] <- FALSE
 
-  # Safe DC score calculation
-  calculate_dc_scores <- function(c1, c2, mask) {
-    vapply(seq_len(nrow(c1)), function(i) {
-      idx <- mask[i, ]
-      if (sum(idx, na.rm = TRUE) == 0) return(0)
-      diffs <- c1[i, idx] - c2[i, idx]
-      # na.rm = TRUE ensures genes don't drop out due to a single NA edge
-      sqrt(mean(diffs^2, na.rm = TRUE))
-    }, numeric(1))
-  }
+  diff_sq_obs <- (cor_1_scaled - cor_2_scaled)^2
+  diff_sq_obs[!informative_mask] <- NA
+  dc_observed <- sqrt(rowMeans(diff_sq_obs, na.rm = TRUE))
+  dc_observed[is.na(dc_observed)] <- 0
 
-  dc_observed <- calculate_dc_scores(cor_1, cor_2, informative_mask)
+  rm(cor_1, cor_2, cor_1_scaled, cor_2_scaled, diff_sq_obs)
 
   # ===================================================================
-  # Optimized Permutation Test (Windows-Safe Parallel)
+  # 2. R-Side Progress Chunking & C++ Execution
   # ===================================================================
+  active_genes_idx <- which(rowSums(informative_mask, na.rm = TRUE) > 0)
+  n_active <- length(active_genes_idx)
 
-  # Extract only the required edges to avoid matrix RAM bloat
-  # and prevent statistical bias from re-evaluating the mask under null conditions.
-  mask_upper <- informative_mask
-  mask_upper[lower.tri(mask_upper, diag = TRUE)] <- FALSE
-  pair_indices <- which(mask_upper, arr.ind = TRUE)
-  n_pairs <- nrow(pair_indices)
-  n_genes <- nrow(expr_matrix)
+  # Accumulated incrementally, chunk by chunk - never materializes the full
+  # n_genes x n_permutations result matrix. That matrix was previously kept
+  # around for the whole run but only ever used for a single rowSums
+  # reduction at the end (no other consumer) - at the very large
+  # permutation counts now often needed for adequate power (Phase 5
+  # finding), that was hundreds of MB to GB of R-side memory for something
+  # that was purely transient. See tests/testthat/test-bmht-memory.R for
+  # the exact-reproduction check this refactor was validated against.
+  greater_eq_counts <- integer(n_genes)
+  valid_perms_counts <- integer(n_genes)
 
-  if (n_pairs == 0) {
+  if (n_active == 0) {
     warning("No edges passed the half-threshold. Returning 0 scores.")
+    # greater_eq_counts/valid_perms_counts both stay all-zero, giving
+    # p_values = (0+1)/(0+1) = 1 for every gene - identical to the old
+    # behavior (a fully-zero perm_dc_matrix compared against dc_observed,
+    # which is also 0 for every gene in this case).
   } else {
-    message(sprintf("Running %d permutations on %d informative edges...", n_permutations, n_pairs))
+    em_sub <- expr_matrix[active_genes_idx, , drop = FALSE]
+
+    rm(informative_mask)
+    gc(verbose = FALSE)
+
+    cond_int <- as.integer(condition)
+
+    # Fixed, bounded chunk size regardless of n_permutations - caps peak
+    # per-chunk memory (both the shuffled-labels matrix and the C++ output
+    # chunk) instead of letting it grow proportionally with however many
+    # total permutations the user requests. Progress granularity is a UX
+    # nicety, not a correctness requirement, so a fixed size is strictly
+    # better: modest runs still get ~10 updates, large runs get more
+    # frequent (not less frequent) feedback.
+    chunk_size <- min(500, max(10, n_permutations))
+    n_chunks <- ceiling(n_permutations / chunk_size)
+
+    dc_observed_active <- dc_observed[active_genes_idx]
+
+    message(sprintf("Deploying C++ OpenMP Engine across %d hardware threads...", workers))
+    pb <- progress::progress_bar$new(
+      format = "  Permutations Workflow [:bar] :percent | ETA: :eta",
+      total = n_chunks, clear = FALSE, width = 65
+    )
+
+    for (c in 1:n_chunks) {
+      start_p <- ((c - 1) * chunk_size) + 1
+      end_p <- min(c * chunk_size, n_permutations)
+      curr_b_count <- (end_p - start_p) + 1
+
+      shuffled_chunk <- replicate(curr_b_count, sample(cond_int))
+
+      cpp_chunk_out <- cpp_bmht_permutations(em_sub, shuffled_chunk,
+                                             half_threshold, mad_1, mad_2, workers)
+
+      chunk_ge <- rowSums(cpp_chunk_out >= dc_observed_active, na.rm = TRUE)
+      chunk_valid <- rowSums(!is.na(cpp_chunk_out))
+
+      greater_eq_counts[active_genes_idx] <- greater_eq_counts[active_genes_idx] + chunk_ge
+      valid_perms_counts[active_genes_idx] <- valid_perms_counts[active_genes_idx] + chunk_valid
+
+      pb$tick()
+    }
   }
 
-  # Explicitly pass required data to workers to prevent Lexical Scoping crashes on Windows
-  run_one_permutation <- function(i, cond, c_levels, em, pairs, n_p, n_g, mask, bicor_fn) {
-    tryCatch({
-      perm_condition <- sample(cond)
-      x_c1 <- em[, perm_condition == c_levels[1]]
-      x_c2 <- em[, perm_condition == c_levels[2]]
+  # ===================================================================
+  # 3. Vectorized Significance & FDR
+  # ===================================================================
+  # greater_eq_counts / valid_perms_counts already accumulated incrementally
+  # above - no full perm_dc_matrix to reduce here anymore.
+  p_values <- (greater_eq_counts + 1) / (valid_perms_counts + 1)
 
-      p_diff_sq <- numeric(n_p)
-
-      # Fast inner loop: Compute ONLY the specific edges that mattered biologically
-      for (p in seq_len(n_p)) {
-        g1 <- pairs[p, 1]
-        g2 <- pairs[p, 2]
-
-        r1 <- bicor_fn(x_c1[g1, ], x_c1[g2, ])
-        r2 <- bicor_fn(x_c2[g1, ], x_c2[g2, ])
-
-        if (is.na(r1) || is.na(r2)) {
-          p_diff_sq[p] <- NA_real_
-        } else {
-          p_diff_sq[p] <- (r1 - r2)^2
-        }
-      }
-
-      # Aggregate back to a temporary matrix to match the masking logic
-      diff_mat <- matrix(NA_real_, nrow = n_g, ncol = n_g)
-      diff_mat[pairs] <- p_diff_sq
-      diff_mat[pairs[, c(2, 1)]] <- p_diff_sq # Make symmetric
-
-      # Extract permuted DC scores for each gene safely
-      p_dc <- vapply(seq_len(n_g), function(g) {
-        idx <- mask[g, ]
-        if (!any(idx)) return(0)
-
-        vals <- diff_mat[g, idx]
-        valid_vals <- vals[!is.na(vals)] # Filter NAs safely to avoid NaN warnings
-
-        if (length(valid_vals) == 0) return(0)
-        sqrt(mean(valid_vals))
-      }, numeric(1))
-
-      return(p_dc)
-
-    }, error = function(e) {
-      return(rep(NA_real_, n_g))
-    })
-  }
-
-  # Use the Smart Dispatcher
-  BPPARAM <- .get_bp_param(workers)
-
-  # Ensure RNGseed is set if using multiple workers for reproducibility
-  if(workers > 1){
-    BiocParallel::bpRNGseed(BPPARAM) <- seed
-  }
-
-  perm_results <- BiocParallel::bplapply(
-    seq_len(n_permutations),
-    run_one_permutation,
-    cond = condition,
-    c_levels = conditions,
-    em = expr_matrix,
-    pairs = pair_indices,
-    n_p = n_pairs,
-    n_g = n_genes,
-    mask = informative_mask,
-    bicor_fn = bicor,
-    BPPARAM = BPPARAM
-  )
-
-  # Column-bind results safely
-  perm_dc_matrix <- do.call(cbind, perm_results)
-
-  # Standard pseudo-count added to empirical p-value calculation
-  p_values <- vapply(seq_along(dc_observed), function(i) {
-    valid_perms <- perm_dc_matrix[i, !is.na(perm_dc_matrix[i, ])]
-    if (length(valid_perms) == 0) return(1.0) # Fail safe
-    (sum(valid_perms >= dc_observed[i]) + 1) / (length(valid_perms) + 1)
-  }, numeric(1))
-
-  # Boost statistical power by only adjusting FDR for tested (non-zero) genes
   fdr_values <- rep(1.0, length(p_values))
   tested_mask <- dc_observed > 0
-
   if (any(tested_mask)) {
     fdr_values[tested_mask] <- stats::p.adjust(p_values[tested_mask], method = "BH")
   }
@@ -196,10 +210,7 @@ run_bmht <- function(expr_matrix, condition,
     FDR = fdr_values,
     stringsAsFactors = FALSE
   )
-
-  if (species_mode) {
-    results_df$species <- species
-  }
+  if (species_mode) results_df$species <- species
 
   results_df <- results_df[order(-results_df$DC_Score), ]
   rownames(results_df) <- NULL
@@ -214,39 +225,6 @@ run_bmht <- function(expr_matrix, condition,
       transform = transform,
       data = list(expr_matrix = expr_matrix, condition = condition, species = species)
     ),
-    class = "bmht_result"
+    class = c("bmht_result", "list")
   )
-}
-
-# ===================================================================
-# S3 Methods
-# ===================================================================
-
-#' Summary for bmht_result
-#' @export
-summary.bmht_result <- function(object, ...) {
-  n_sig <- sum(object$results$FDR < object$significance_level, na.rm = TRUE)
-
-  cat("--- BMHT Analysis Summary ---\n")
-  cat(sprintf("Genes tested: %d\n", sum(object$results$DC_Score > 0)))
-  cat(sprintf("Permutations performed: %d\n", object$n_permutations))
-  cat(sprintf("Half-threshold: %.2f\n", object$half_threshold))
-  cat(sprintf("Transform applied: %s\n", toupper(object$transform)))
-  if (object$species_mode) cat("Species mode: Enabled\n")
-  cat(sprintf("Significant genes (FDR < %.2f): %d\n", object$significance_level, n_sig))
-  cat("----------------------------------\n")
-
-  if (n_sig > 0) {
-    cat("Top 10 genes by DC Score:\n")
-    print(head(object$results, 10))
-  } else {
-    cat("No significant differentially co-expressed genes found.\n")
-  }
-  invisible(object)
-}
-
-#' Print method
-#' @export
-print.bmht_result <- function(x, ...) {
-  summary(x, ...)
 }

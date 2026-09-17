@@ -2,10 +2,10 @@
 % Please edit documentation in R/utils_graphics.R
 \name{bicor_palette}
 \alias{bicor_palette}
-\title{Standard Palette for bicorDCEA}
+\title{Standard Palette for bicorX}
 \usage{
 bicor_palette()
 }
 \description{
-Standardized hex codes to keep Condition 1 and Condition 2 visually consistent across all plots.
+Standard Palette for bicorX
 }

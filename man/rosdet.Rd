@@ -2,8 +2,9 @@
 % Please edit documentation in R/core_rosdet_engine.R
 \name{rosdet}
 \alias{rosdet}
-\title{ROS-DET: Robust Switching Differential Co-expression}
+\title{ROS-DET: Universal Re-wired Differential Co-expression Topology}
 \description{
-Identifies gene pairs that switch correlation sign between conditions.
-Optimized with precomputed matrices, WGCNA scaling, and cross-species mode.
+Identifies gene pairs undergoing rewiring (both sign-flipping and decoupling)
+between conditions, using a two-gate design: Gate 1 screens candidate pairs on
+|delta correlation|, Gate 2 runs a permutation test on the surviving candidates.
 }

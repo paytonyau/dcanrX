@@ -2,10 +2,16 @@
 % Please edit documentation in R/utils_graphics.R
 \name{theme_bicor}
 \alias{theme_bicor}
-\title{Custom bicorDCEA ggplot2 Theme}
+\title{Custom bicorX ggplot2 Theme}
 \usage{
 theme_bicor(base_size = 14)
 }
+\arguments{
+\item{base_size}{Base font size in points. Default `14`.}
+}
+\value{
+A `ggplot2` theme object.
+}
 \description{
-A standardized, clean theme applied across the package to ensure publication-ready consistency.
+Custom bicorX ggplot2 Theme
 }

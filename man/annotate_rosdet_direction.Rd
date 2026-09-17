@@ -7,13 +7,15 @@
 annotate_rosdet_direction(rosdet_result, tf_list)
 }
 \arguments{
-\item{rosdet_result}{The output object from `run_rosdet()`.}
+\item{rosdet_result}{A `rosdet_result` object from [run_rosdet()].}
 
-\item{tf_list}{A character vector of known Transcription Factor gene symbols.}
+\item{tf_list}{Character vector of transcription factor (or other
+regulator) gene names.}
 }
 \value{
-An updated `rosdet_result` object with a new `$Direction` column.
+The results data frame with added `G1_is_TF`, `G2_is_TF` and
+  `Direction` columns indicating putative regulatory direction.
 }
 \description{
-Assigns directed edges to ROS-DET switching pairs based on prior Transcription Factor knowledge.
+Annotate Direction for ROS-DET Switching Pairs
 }

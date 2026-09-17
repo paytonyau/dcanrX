@@ -1,0 +1,64 @@
+citHeader("bicorX extends three previously-published, never-packaged",
+          "differential co-expression methods. Please cite the relevant",
+          "source paper(s) for the method(s) you use, alongside the package:")
+
+bibentry(
+  bibtype  = "Article",
+  key      = "zheng2014bmht",
+  title    = "Gene differential coexpression analysis based on biweight correlation and maximum clique",
+  author   = "Chun-Hou Zheng and Lin Yuan and Wen Sha and Zhan-Li Sun",
+  journal  = "BMC Bioinformatics",
+  year     = "2014",
+  volume   = "15",
+  number   = "Suppl 15",
+  pages    = "S3",
+  doi      = "10.1186/1471-2105-15-S15-S3",
+  textVersion = paste(
+    "Zheng CH, Yuan L, Sha W, Sun ZL (2014).",
+    "Gene differential coexpression analysis based on biweight correlation and maximum clique.",
+    "BMC Bioinformatics, 15(Suppl 15):S3. doi:10.1186/1471-2105-15-S15-S3",
+    "[bicorX's BMHT method - note: this package implements gene ranking only,",
+    "not the paper's downstream maximum-clique module analysis]"
+  )
+)
+
+bibentry(
+  bibtype  = "Article",
+  key      = "kayano2011rosdet",
+  title    = "ROS-DET: robust detector of switching mechanisms in gene expression",
+  author   = "Mitsunori Kayano and Ichigaku Takigawa and Motoki Shiga and Koji Tsuda and Hiroshi Mamitsuka",
+  journal  = "Nucleic Acids Research",
+  year     = "2011",
+  volume   = "39",
+  number   = "11",
+  pages    = "e74",
+  doi      = "10.1093/nar/gkr130",
+  textVersion = paste(
+    "Kayano M, Takigawa I, Shiga M, Tsuda K, Mamitsuka H (2011).",
+    "ROS-DET: robust detector of switching mechanisms in gene expression.",
+    "Nucleic Acids Research, 39(11):e74. doi:10.1093/nar/gkr130",
+    "[bicorX's ROS-DET method - both the original permutation-based",
+    "significance test and the paper's own analytical ECOR test (Eq. 4)",
+    "are available via significance_method = 'permutation'/'analytical']"
+  )
+)
+
+bibentry(
+  bibtype  = "Article",
+  key      = "yuan2015bmkc",
+  title    = "Module Based Differential Coexpression Analysis Method for Type 2 Diabetes",
+  author   = "Lin Yuan and Chun-Hou Zheng and Jun-Feng Xia and De-Shuang Huang",
+  journal  = "BioMed Research International",
+  year     = "2015",
+  volume   = "2015",
+  pages    = "836929",
+  doi      = "10.1155/2015/836929",
+  textVersion = paste(
+    "Yuan L, Zheng CH, Xia JF, Huang DS (2015).",
+    "Module Based Differential Coexpression Analysis Method for Type 2 Diabetes.",
+    "BioMed Research International, 2015:836929. doi:10.1155/2015/836929",
+    "[bicorX's BMKC method - note: this package uses k-core decomposition",
+    "in place of the paper's exact k-clique percolation for scalability;",
+    "see NEWS.md for the full fidelity account]"
+  )
+)

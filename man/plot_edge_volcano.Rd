@@ -4,8 +4,16 @@
 \alias{plot_edge_volcano}
 \title{Plot Differential Edge Volcano}
 \usage{
-plot_edge_volcano(rosdet_res)
+plot_edge_volcano(rosdet_res, ...)
+}
+\arguments{
+\item{rosdet_res}{A `rosdet_result` object from [run_rosdet()].}
+
+\item{...}{Currently unused; accepted for S3 compatibility.}
+}
+\value{
+A `ggplot` object.
 }
 \description{
-Plots the change in correlation (Delta r) vs significance for gene pairs.
+Plots the absolute change in co-expression distance vs significance for gene pairs.
 }

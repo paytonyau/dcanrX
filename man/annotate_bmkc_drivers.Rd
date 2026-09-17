@@ -7,13 +7,15 @@
 annotate_bmkc_drivers(bmkc_result, tf_list)
 }
 \arguments{
-\item{bmkc_result}{The output object from `run_bmkc()`.}
+\item{bmkc_result}{A `bmkc_result` object from [run_bmkc()].}
 
-\item{tf_list}{A character vector of known Transcription Factor gene symbols.}
+\item{tf_list}{Character vector of transcription factor (or other
+regulator) gene names.}
 }
 \value{
-An updated `bmkc_result` object with a new `$module_drivers` list.
+A data frame with one row per detected module, reporting the
+  regulators found within it.
 }
 \description{
-Scans BMKC co-expression modules to identify the embedded Transcription Factors acting as clique master regulators.
+Annotate Master Regulators for BMKC Modules
 }

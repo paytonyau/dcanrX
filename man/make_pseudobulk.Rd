@@ -13,18 +13,24 @@ make_pseudobulk(
 )
 }
 \arguments{
-\item{sce}{A `SingleCellExperiment` object.}
+\item{sce}{A `SingleCellExperiment` (or object coercible to one)
+containing single-cell or spatial counts.}
 
-\item{sample_col}{Column name identifying biological replicates.}
+\item{sample_col}{Name of the `colData` column identifying independent
+biological replicates (patients, mice, wells) to aggregate within.
+This should not be a cluster or cell-type label.}
 
-\item{condition_col}{Column name containing the experimental condition.}
+\item{condition_col}{Name of the `colData` column giving the two-level
+condition for each cell.}
 
-\item{assay}{Which assay to aggregate (default: `"counts"`).}
+\item{assay}{Name of the assay to aggregate. Default `"counts"`.}
 
-\item{min_cells}{Minimum number of cells required to form a valid pseudobulk.}
+\item{min_cells}{Minimum number of cells required for a sample to be
+retained. Default `10`.}
 }
 \value{
-A list containing the pseudobulked matrix and metadata.
+A list with `expr_matrix` (features by pseudobulk samples) and
+  `condition` (one entry per pseudobulk sample).
 }
 \description{
 Create Pseudobulk Matrix from SingleCellExperiment

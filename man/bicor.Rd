@@ -2,20 +2,19 @@
 % Please edit documentation in R/utils.R
 \name{bicor}
 \alias{bicor}
-\title{Biweight Midcorrelation (bicor) with Pearson Fallback}
+\title{Biweight Midcorrelation}
 \usage{
 bicor(x, y)
 }
 \arguments{
-\item{x}{Numeric vector}
-
-\item{y}{Numeric vector}
+\item{x, y}{Numeric vectors of equal length.}
 }
 \value{
-Numeric scalar between -1 and 1 (NA if insufficient data)
+A single numeric value in `[-1, 1]`.
 }
 \description{
-A robust measure of correlation, highly resistant to outliers.
-Includes a fallback to Pearson correlation for highly sparse vectors
-(Zero-MAD problem common in single-cell data).
+Computes the biweight midcorrelation between two numeric vectors, a
+robust alternative to Pearson correlation that down-weights outlying
+observations. Falls back to Pearson correlation when the median
+absolute deviation of either input is zero.
 }

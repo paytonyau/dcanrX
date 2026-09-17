@@ -4,5 +4,5 @@
 \alias{rosdet_plots}
 \title{ROS-DET Visualization Suite}
 \description{
-Plotting functions for Differential Edge Topologies (Correlation Switching).
+Plotting functions for differential edge / correlation-switching results from ROS-DET.
 }

@@ -7,14 +7,21 @@
 run_multiomic_rosdet(omic_A, omic_B, condition, ...)
 }
 \arguments{
-\item{omic_A}{A dense matrix for Layer A. Rows = features, Columns = samples.}
+\item{omic_A}{Numeric matrix for the first omics layer, features
+(rows) by samples (columns).}
 
-\item{omic_B}{A dense matrix for Layer B. Rows = features, Columns = samples.}
+\item{omic_B}{Numeric matrix for the second omics layer, with the same
+samples (columns) in the same order as `omic_A`.}
 
-\item{condition}{A factor vector of length equal to the number of columns, denoting the biological state.}
+\item{condition}{Two-level factor giving the condition of each sample.}
 
-\item{...}{Additional arguments passed to the core `run_rosdet` engine.}
+\item{...}{Further arguments passed to [run_multiomic()].}
+}
+\value{
+A `rosdet_result` object restricted to cross-layer pairs.
 }
 \description{
-Identifies correlation switches specifically between two different omic layers (e.g., RNA vs. Protein).
+Kept for backward compatibility. Equivalent to
+`run_multiomic(omic_A, omic_B, condition, method = "rosdet", ...)` - see
+`run_multiomic()` for a version that also supports BMHT and BMKC.
 }

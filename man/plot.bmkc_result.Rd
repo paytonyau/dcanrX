@@ -4,20 +4,26 @@
 \alias{plot.bmkc_result}
 \title{Plot Method for BMKC}
 \usage{
-\method{plot}{bmkc_result}(
-  x,
-  type = c("default", "network", "heatmap", "eigengene", "raincloud", "spatial",
-    "density", "overlap", "umap"),
-  ...
-)
+\method{plot}{bmkc_result}(x, type = c("default", "network", "heatmap", "eigengene", "umap"), ...)
 }
 \arguments{
-\item{x}{A bmkc_result object.}
+\item{x}{A `bmkc_result` object from [run_bmkc()].}
 
-\item{type}{String. Type of plot: "network", "heatmap", "eigengene", "raincloud", "spatial", "density", "overlap", or "umap".}
+\item{type}{Which plot to draw: `"default"`/`"network"` for the
+differential network, `"heatmap"` for the module correlation
+heatmap, or `"eigengene"` for the module eigengene plot.}
 
-\item{...}{Additional arguments passed to the specific plotting function.}
+\item{...}{Passed to the underlying plotting function.}
+}
+\value{
+A `ggplot` object (or a `visNetwork` widget for interactive
+  network plots).
 }
 \description{
-S3 method to easily route plotting commands based on type.
+As of the Phase 3 surface reduction, only four plot types are provided
+directly: `"heatmap"`, `"eigengene"`, `"network"` (default; a differential
+network shared with BMHT results), and `"umap"` (a module-eigengene
+overlay, requires a Seurat object via `sc_obj`). For other visualizations
+(raincloud style, module violin, spatial/tissue overlays, multi-method
+overlap), see the "Custom plots from bicorX results" vignette.
 }

@@ -4,8 +4,18 @@
 \alias{plot_module_eigengene}
 \title{Module Eigengene Boxplot (BMKC)}
 \usage{
-plot_module_eigengene(bmkc_result, module_index = 1)
+plot_module_eigengene(bmkc_result, module_index = 1, ...)
+}
+\arguments{
+\item{bmkc_result}{A `bmkc_result` object from [run_bmkc()].}
+
+\item{module_index}{Which detected module to plot. Default `1`.}
+
+\item{...}{Currently unused; accepted for S3 compatibility.}
+}
+\value{
+A `ggplot` object.
 }
 \description{
-Plots the summary expression (First Principal Component) of the entire module.
+Module Eigengene Boxplot (BMKC)
 }

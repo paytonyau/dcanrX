@@ -10,7 +10,7 @@ run_dcanr_pseudobulk(
   sample_col = "sample",
   method = c("rosdet", "bmht", "bmkc"),
   assay = "counts",
-  transform = c("none", "clr", "log1p"),
+  transform = c("none", "clr", "rclr", "log1p"),
   split_by = NULL,
   species = NULL,
   min_cells = 10,
@@ -19,27 +19,38 @@ run_dcanr_pseudobulk(
 )
 }
 \arguments{
-\item{sce}{SingleCellExperiment object}
+\item{sce}{A `SingleCellExperiment` (or coercible) object.}
 
-\item{condition_col}{Condition column name}
+\item{condition_col}{Name of the `colData` column giving the two-level
+condition. Default `"condition"`.}
 
-\item{sample_col}{Sample column name}
+\item{sample_col}{Name of the `colData` column identifying independent
+biological replicates to aggregate within. Default `"sample"`.}
 
-\item{method}{Analysis method ("rosdet", "bmht", or "bmkc")}
+\item{method}{Which method to run: `"rosdet"`, `"bmht"`, or `"bmkc"`.}
 
-\item{assay}{Assay to use (default: "counts")}
+\item{assay}{Name of the assay to aggregate. Default `"counts"`.}
 
-\item{transform}{Compositional transformation (default: "clr")}
+\item{transform}{Compositional transform to apply: `"none"`, `"clr"`,
+`"rclr"`, or `"log1p"`.}
 
-\item{split_by}{Optional column name for running independent spatial/cell-type networks.}
+\item{split_by}{Optional `colData` column to split the analysis by,
+running the chosen method separately within each level.}
 
-\item{species}{Optional character string or column name for cross-species mode.}
+\item{species}{Optional grouping vector (one entry per feature) used
+for per-group CLR normalization and layer-aware pair filtering.}
 
-\item{min_cells}{Minimum cells per pseudobulk (default: 10).}
+\item{min_cells}{Minimum cells required per pseudobulk sample.
+Default `10`.}
 
-\item{min_prop}{Minimum proportion of pseudobulks a gene must be expressed in to be kept (default: 0.10).}
+\item{min_prop}{Minimum proportion of samples in which a feature must
+be detected to be retained. Default `0.10`.}
 
-\item{...}{Additional arguments passed to the chosen analysis function}
+\item{...}{Further arguments passed to the chosen method's engine.}
+}
+\value{
+The chosen method's result object, or a named list of such
+  objects when `split_by` is supplied.
 }
 \description{
 Run Differential Co-expression on Single-Cell or Spatial Data

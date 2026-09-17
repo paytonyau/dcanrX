@@ -1,0 +1,157 @@
+---
+title: "Multi-omics workflow: combining RNA and ATAC (or host + microbe) data"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Multi-omics workflow: combining RNA and ATAC (or host + microbe) data}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+## What this is for
+
+bicorX's most distinctive capability isn't any one of BMHT, BMKC, or
+ROS-DET individually - it's that all three can be pointed at data that
+combines more than one omics layer (RNA + ATAC, host + microbe, or any
+two feature sets measured on the same samples) and asked specifically
+about *cross-layer* relationships: does this gene's expression rewire
+alongside this regulatory element's accessibility, and only in one
+condition?
+
+This vignette walks through that workflow end to end using a small
+built-in synthetic dataset, then explains the mechanism (per-layer CLR
+normalization) that makes it work correctly rather than just concatenating
+two unrelated matrices and hoping for the best.
+
+## The built-in example dataset
+
+`inst/extdata/multiomics_dataset.RData` contains a synthetic RNA layer (30
+genes) and ATAC layer (20 peaks) across 24 samples in two conditions, with
+a deliberately injected signal: 5 genes and 5 peaks share a common latent
+factor in condition A only - as if a set of regulatory elements becomes
+active and drives a set of genes, specifically under one condition.
+
+```{r, eval = FALSE}
+library(bicorX)
+
+load(system.file("extdata", "multiomics_dataset.RData", package = "bicorX"))
+dim(multiomics_rna)   # 30 genes x 24 samples
+dim(multiomics_atac)  # 20 peaks x 24 samples
+table(multiomics_condition)
+```
+
+## Running the analysis
+
+`run_multiomic()` is the entry point: it takes two matrices sharing the
+same samples, tags each feature with which layer it came from, and runs
+any of the three methods restricted to cross-layer relationships by
+default.
+
+```{r, eval = FALSE}
+res <- run_multiomic(
+  multiomics_rna, multiomics_atac, multiomics_condition,
+  method = "rosdet",       # also supports "bmht" and "bmkc"
+  n_permutations = 2000,   # candidate-pair counts here can be in the
+                           # hundreds, so this needs to be well above the
+                           # ROS-DET default to survive FDR correction -
+                           # see the note on permutation counts below
+  min_delta = 0.3
+)
+
+head(res$results[order(res$results$FDR), ])
+```
+
+Feature names are prefixed with the layer they came from
+(`Layer_A_Gene_01`, `Layer_B_Peak_01` by default, or your own
+`layer_A_name`/`layer_B_name`), so it's always unambiguous which pairs are
+cross-layer:
+
+```{r, eval = FALSE}
+sig <- res$results[res$results$FDR < 0.05, ]
+sig[, c("Gene1", "Gene2", "Distance_Score", "FDR")]
+```
+
+## `pair_type_filter`: inter, intra, or all
+
+By default `run_multiomic()` sets `pair_type_filter = "inter"`, keeping
+only cross-layer pairs (RNA-vs-ATAC), which is almost always what you want
+for a multi-omics question - within-layer pairs (gene-vs-gene,
+peak-vs-peak) are just the ordinary single-omics analysis and don't need
+two layers to detect. Set `pair_type_filter = "all"` to keep everything,
+or `"intra"` to keep only within-layer pairs. This filter only applies to
+ROS-DET (a pairwise method); it's ignored - with a warning - if supplied
+for `method = "bmht"` or `"bmkc"`, which don't produce a pairwise table.
+
+## `layer` vs. `species`: same mechanism, clearer name
+
+Under the hood, `run_multiomic()` is a thin wrapper around
+`run_bicordcea()` that builds a `layer` vector (one entry per combined
+row) and passes it through. If you're combining matrices yourself instead
+of using `run_multiomic()`, `layer` works directly on any of the standard
+entry points:
+
+```{r, eval = FALSE}
+combined <- rbind(multiomics_rna, multiomics_atac)
+layer_tags <- c(rep("RNA", nrow(multiomics_rna)), rep("ATAC", nrow(multiomics_atac)))
+
+run_bmht(combined, multiomics_condition, layer = layer_tags, n_permutations = 1000)
+```
+
+`layer` is a synonym for `species` (the original argument name, oriented
+toward microbiome use) - both populate the same internal grouping
+mechanism. Use whichever name matches what you're actually doing; if you
+supply both, `layer` wins.
+
+## Why per-layer, not global, normalization
+
+If you request a compositional transform (`transform = "clr"`), it's
+computed *separately within each layer*, not globally across the combined
+matrix. This matters because RNA counts and ATAC peak accessibility (or
+host and microbial abundances) live on different scales and have
+different sparsity patterns - a single global CLR would let whichever
+layer has larger or more variable values dominate the normalization and
+distort the other layer's compositions. Splitting by `layer`/`species`
+keeps each layer's normalization self-contained. See
+`?bicorX:::.compositional_transform` for the implementation details.
+
+## A note on permutation counts for cross-layer analyses
+
+Restricting to inter-layer pairs still often leaves hundreds of candidate
+pairs to test, and BH-FDR correction across that many tests needs smaller
+p-values than a handful of permutations can produce - the smallest
+possible p-value at `n_permutations = 100` is `1/101 ≈ 0.0099`, which
+usually can't survive correction across 200+ tests. In practice, plan for
+`n_permutations` in the thousands for a full multi-omics ROS-DET run;
+1,000-5,000 depending on how many candidate pairs survive Gate 1
+(`min_delta`).
+
+If you have at least ~30-50 samples per condition, `run_multiomic(...,
+significance_method = "analytical")` (passed through to ROS-DET via
+`...`) sidesteps this permutation-count tradeoff entirely - it computes
+an exact p-value per pair directly rather than by resampling, at the
+cost of the small-sample calibration caveats documented on
+`?run_rosdet`. This is the significance method used in the real-data
+example below.
+
+## A real example: TCGA Adrenocortical Carcinoma (RNA + miRNA)
+
+The workflow above uses a small synthetic dataset for clarity. For a
+real, externally-published, adequately-powered example instead, see
+`dev/real_data_validation/acc_multiomics_check.R` in the package source
+- it runs the exact same `run_multiomic()` workflow on real TCGA
+Adrenocortical Carcinoma data (RNA-seq + miRNA-seq, 78 patients,
+comparing the published C1A/C1B molecular subtypes), bundled directly
+with the Bioconductor `MultiAssayExperiment` package as `miniACC` (no
+extra download required). It finds a striking, statistically-confirmed
+pattern: a single microRNA (`hsa-mir-137`) accounts for 6 of the 10
+genome-wide-significant cross-layer pairs - a massive, formally-tested
+concentration (Fisher's exact test p = 5.0e-13 against the correct
+background rate), not an eyeballed coincidence. The script's own header
+comments are explicit about what's independently verified computationally
+within the analysis versus what would need a literature search to confirm
+(the specific biological role of that microRNA in this cancer type) -
+worth reading in full before citing the result, since it draws that line
+carefully rather than overclaiming.

@@ -5,6 +5,6 @@
 \title{BMHT: Biweight Midcorrelation + Half-Thresholding Method}
 \description{
 Ranks individual genes by their differential co-expression
-connectivity (rewiring) between two conditions using bicor.
-Supports CLR transformation for microbiome and cross-species mode.
+connectivity (rewiring) between two conditions using bicor. The observed
+and permutation-null statistics are computed in C++; see bmht_cpp.cpp.
 }

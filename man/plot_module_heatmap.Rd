@@ -2,10 +2,21 @@
 % Please edit documentation in R/core_bmkc_plots.R
 \name{plot_module_heatmap}
 \alias{plot_module_heatmap}
-\title{Before-After Module Correlation Heatmap (BMKC)}
+\title{Plot a Module Correlation Heatmap}
 \usage{
-plot_module_heatmap(bmkc_result, module_index = 1)
+plot_module_heatmap(bmkc_result, module_index = 1, ...)
+}
+\arguments{
+\item{bmkc_result}{A `bmkc_result` object from [run_bmkc()].}
+
+\item{module_index}{Which detected module to plot. Default `1`.}
+
+\item{...}{Currently unused; accepted for S3 compatibility.}
+}
+\value{
+A `ggplot` object.
 }
 \description{
-Faceted heatmap proving that the module is synchronized in one condition but not the other.
+Draws the within-module biweight midcorrelation structure for one
+detected BMKC module.
 }

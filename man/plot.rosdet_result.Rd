@@ -4,19 +4,23 @@
 \alias{plot.rosdet_result}
 \title{Plot Method for ROS-DET}
 \usage{
-\method{plot}{rosdet_result}(
-  x,
-  type = c("default", "quadrant", "stacked", "species", "volcano", "chord"),
-  ...
-)
+\method{plot}{rosdet_result}(x, type = c("default", "quadrant", "volcano"), ...)
 }
 \arguments{
-\item{x}{A rosdet_result object.}
+\item{x}{A `rosdet_result` object from [run_rosdet()].}
 
-\item{type}{String. Type of plot: "default", "quadrant", "stacked", "species", "volcano", or "chord".}
+\item{type}{Which plot to draw: `"default"`/`"quadrant"` for the
+correlation quadrant plot, or `"volcano"` for the edge volcano.}
 
-\item{...}{Additional arguments passed to the specific plotting function.}
+\item{...}{Passed to the underlying plotting function.}
+}
+\value{
+A `ggplot` object.
 }
 \description{
-S3 method to easily route plotting commands based on type.
+As of the Phase 3 surface reduction, only two plot types are provided
+directly: `"quadrant"` (default) and `"volcano"`. For other
+visualizations (switching heatmaps/networks, species interaction, ego
+networks, spatial/UMAP overlays), see the "Custom plots from bicorX
+results" vignette.
 }

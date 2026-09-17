@@ -2,12 +2,9 @@
 % Please edit documentation in R/core_bmkc_engine.R
 \name{bmkc}
 \alias{bmkc}
-\title{BMKC: Biweight Midcorrelation + k-Clique Method}
+\title{BMKC: Biweight Midcorrelation + Relaxed Quasi-Clique Method}
 \description{
-Identifies gene modules (cliques) that are strongly co-expressed
-in one condition but not in the other.
-
-Modernized to support cross-species microbiome data, signed vs. unsigned
-networks, two-sided differential search, and adaptive percentile thresholding
-for highly sparse single-cell data.
+Identifies dense gene modules (quasi-cliques) that are strongly co-expressed,
+using a k-core decomposition with a gamma density-relaxation step. Correlation
+matrices and adjacency thresholding are computed in C++; see bmkc_cpp.cpp.
 }

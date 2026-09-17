@@ -4,5 +4,5 @@
 \alias{bmht_plots}
 \title{BMHT Visualization Suite}
 \description{
-Plotting functions for Biweight Midcorrelation Hub Topology (BMHT) and Causal Inference.
+Plotting functions for Biweight Midcorrelation Hub Topology (BMHT) results and causal-driver overlays.
 }
